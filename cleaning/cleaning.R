@@ -1,4 +1,4 @@
-# Title:        Data cleaning for RADAR-MDD analysis
+# Title:        Data cleaning for RADAR-MDD usability analysis
 # Author:       Ewan Carr
 # Started:      2021-08-03
 
@@ -11,7 +11,8 @@ library(janitor)
 library(lubridate)
 library(naniar)
 
-# Load survey data
+# Load survey data ------------------------------------------------------------
+
 dat <- read_dta(here("data", "survey", "extended_data_2021_09_30.dta")) %>%
     rename(event = redcap_event_name,
            fut = Followuptime,
@@ -78,59 +79,41 @@ extra <- read_dta(here("data", "survey",
                            TRUE ~ NA)
     )
 
-# # Select analytical sample ----------------------------------------------------
-
-# # ==> Must have at least one measure of PSU and TAM.
-
-# incl <- dat %>%
-#     select(pid, psu, tam) %>%
-#     drop_na() %>%
-#     count(pid) %>%
-#     pluck("pid")
-
 # Select baseline variables ---------------------------------------------------
 
 baseline <- dat %>%
-    group_by(pid) %>%
-    select(
-        subject_id, pid, age, male, bame, anyben, smoker, partner, phq,
-        edyrs, site, debt, prevwear
-    ) %>%
-    summarise(across(everything(), ~ first(na.omit(.x))))
+    group_by(subject_id) %>%
+    select(subject_id, pid, age, male, bame,
+           anyben, smoker, partner, phq,
+           edyrs, site, debt, prevwear) %>%
+    summarise(across(everything(), 
+                     ~ first(na.omit(.x))))
 
 # Merge with extra variables (smartphone, physical comorbidities) -------------
 
-baseline <- baseline %>%
-    left_join(extra, by = "subject_id")
+table(unique(extra$subject_id) %in% unique(baseline$subject_id))
+baseline <- full_join(baseline, extra, by = "subject_id")
 
 # Select longitudinal variables -----------------------------------------------
 
-longitudinal <- dat %>%
-    select(pid, t, survey_time, psu, tam, wsas, gad,
+long <- dat %>%
+    select(subject_id, t, survey_time, psu, tam, wsas, gad, ids,
            starts_with("tam_usefulness"),
            starts_with("tam_ease_of_use"),
            future_1 = tam_usage_1,
            future_2 = tam_usage_2,
            future_3 = tam_usage_3,
-           future_4 = tam_usage_4
-           ) %>%
-    drop_na(pid, t)
+           future_4 = tam_usage_4) %>%
+    drop_na(subject_id, t)
 
-# Merge baseline and longitudinal measures ------------------------------------
+# Recode longitudinal measures ------------------------------------------------
 
-clean <- longitudinal %>%
-    left_join(baseline, by = "pid")
-
-# Recode some variables -------------------------------------------------------
-
-clean <- clean %>%
+long <- long %>%
     # Reverse direction of PSU and TAM
-    mutate(
-        psurev = max(psu) - psu,
-        tamrev = max(tam) - tam,
-        tf = as.factor(t),
-        across(starts_with("future_"), as.numeric)
-    ) %>%
+    mutate(psurev = (19 * 7) - psu,             # 19 questions, each scored 0-7
+           tamrev = (16 * 7) - tam,             # 16 questions, each scored 0-7
+           tf = as.factor(t),
+           across(starts_with("future_"), as.numeric)) %>%
     rowwise() %>%
     mutate(# Future use
            fut = sum(c_across(c(future_1, future_2, future_3, future_4))),
@@ -142,20 +125,10 @@ clean <- clean %>%
            pc_ease_r = 7 - pc_ease) %>%
     ungroup()
 
-# Select required variables ---------------------------------------------------
-
-clean <- clean %>%
-    select(
-        subject_id, pid, t, survey_time, psu, tam, wsas, gad, fut, age, male,
-        smoker, partner, phq, edyrs, site, debt, prevwear, comor, comorf,
-        enrol_date, smartphone_type, tf, tamrev, psurev, employ, inwork,
-        pc_useful_r, pc_ease_r
-    ) %>%
-    arrange(pid, t)
-
 # Derive dates ----------------------------------------------------------------
 
-survey <- clean %>%
+long <- long %>%
+    left_join(select(baseline, subject_id, enrol_date), by = "subject_id") %>%
     arrange(subject_id, t) %>%
     complete(subject_id, t) %>%
     group_by(subject_id) %>%
@@ -165,12 +138,12 @@ survey <- clean %>%
            t_d29 = round(floor(since / 29)))
 
 # Manual fix: replace 25 with 24.
-survey$t_d29[survey$t_d29 == 25] <- 24
+long$t_d29[long$t_d29 == 25] <- 24
 
-# Save ------------------------------------------------------------------------
+# Merge baseline and longitudinal measures ------------------------------------
 
-save(survey, file = here("data", "clean", "survey.Rdata"))
-write_dta(survey, path = here("data", "clean", "survey.dta"))
+clean <- long %>%
+    full_join(select(baseline, -enrol_date), by = "subject_id")
 
 ###############################################################################
 ####                                                                      #####
@@ -212,9 +185,6 @@ app <- select(clean, subject_id, enrol_date) %>%
 app <- app %>%
     mutate(since = interval(enrol_date, e_ts) / days(1),
         t_d29 = round(floor(since / 29)))
-
-app %>% filter(subject_id == '007751c5-d7ad-4bec-a58f-abf32500e2ae') %>%
-    select(t_d29) %>% count(t_d29)
 
 # Total duration using the app ------------------------------------------------
 
@@ -259,18 +229,6 @@ from_dan <- from_dan %>%
 
 ###############################################################################
 ####                                                                      #####
-####                          Merge all datasets                          #####
-####                                                                      #####
-###############################################################################
-
-merge_keys <- c("subject_id", "t_d29")
-
-merged <- survey %>%
-    full_join(from_dan, by = merge_keys) %>%
-    full_join(app_data, by = merge_keys)
-
-###############################################################################
-####                                                                      #####
 ####                 Derive measures of app usage over NEXT 3 months      #####
 ####                                                                      #####
 ###############################################################################
@@ -280,14 +238,27 @@ cum_lead <- function(vec) {
     return(lead(vec, 1) + lead(vec, 2) + lead(vec, 3))
 }
  
-leads <- merged %>%
+next_3m <- from_dan %>%
     arrange(subject_id, t_d29) %>%
     group_by(subject_id) %>%
-    mutate(across(c(wear_time, e_totdurmin, n_access, total_phq8,
-                    total_esm, total_esm28q),
+    mutate(across(c(wear_time, total_phq8),
                   cum_lead, .names = "{.col}_l3")) %>%
-    filter(t_d29 %in% c(3, 12)) %>%
-    drop_na(psu)
+    select(subject_id, t_d29, ends_with("_l3"))
+
+###############################################################################
+####                                                                      #####
+####                          Merge all datasets                          #####
+####                                                                      #####
+###############################################################################
+
+# NOTE: not merging "app_data", since we're not using these measures in paper.
+
+merged <- clean %>%
+  filter(t %in% c(0, 3, 12)) %>%
+  left_join(next_3m, by = c("subject_id", "t_d29"))
+
+# Rescale 'wear time' from 0-3 to 0-1
+merged$wear_time_l3 <- merged$wear_time_l3 / 3
 
 ###############################################################################
 ####                                                                      #####
@@ -295,4 +266,6 @@ leads <- merged %>%
 ####                                                                      #####
 ###############################################################################
 
-save(merged, leads, file = here("data", "clean", "clean.Rdata"))
+save(merged, file = here("data", "clean", "merged.Rdata"))
+
+# END.
