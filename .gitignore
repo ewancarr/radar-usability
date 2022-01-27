@@ -1,6 +1,5 @@
-
 renv/
-
 .Rhistory
-
 data/
+outputs/
+old/
