@@ -4,8 +4,12 @@
 
 library(tidyverse)
 library(here)
+library(janitor)
 library(gtsummary)
+library(readxl)
 load(here("data", "clean", "merged.Rdata"))
+
+# Select sample ---------------------------------------------------------------
 
 # Before dropping anything
 sel <- merged
@@ -34,21 +38,19 @@ compare <- merged %>%
   mutate(samp = "excluded") %>%
   bind_rows(mutate(sel, samp = "analytical"))
 
-compare %>%
-  select(samp,
-         ids,
-         age,
-         male,
-         comorf,
-         edyrs,
-         inwork,
-         prevwear) %>%
-  summarise(across(everything(), ~ first(na.omit(.x)))) %>%
-  ungroup() %>%
-  select(-subject_id) %>%
-  tbl_summary(by = "samp")
-
-
+# compare %>%
+#   select(samp,
+#          ids,
+#          age,
+#          male,
+#          comorf,
+#          edyrs,
+#          inwork,
+#          prevwear) %>%
+#   summarise(across(everything(), ~ first(na.omit(.x)))) %>%
+#   ungroup() %>%
+#   select(-subject_id) %>%
+#   tbl_summary(by = "samp")
 
 # Export chosen participants
 picks <- unique(as.character(sel$subject_id))

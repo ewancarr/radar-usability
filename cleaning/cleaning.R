@@ -262,6 +262,31 @@ merged$wear_time_l3 <- merged$wear_time_l3 / 3
 
 ###############################################################################
 ####                                                                      #####
+####                     Remove withdrawn participants                    #####
+####                                                                      #####
+###############################################################################
+
+withdrawals <- read_xlsx(here("data", "survey",
+                              "Withdrawal information.xlsx")) %>%
+  clean_names() %>%
+  mutate(last_app = case_when(apps_disconnected == "Between 3-6 months" ~ 3,
+                              apps_disconnected == "Between 12-15 months" ~ 12))
+
+merged <- merged %>%
+  left_join(withdrawals, by = c("subject_id" = "participant_id")) %>% 
+  mutate(excluded = t >= last_app) 
+
+# Check/inspect excluded observations
+merged %>%
+  group_by(subject_id) %>%
+  filter(any(!is.na(excluded))) %>% 
+  select(subject_id, t, psu, last_app, excluded)
+
+# Remove them
+merged <- filter(merged, !excluded | is.na(excluded))
+
+###############################################################################
+####                                                                      #####
 ####                                 Save                                 #####
 ####                                                                      #####
 ###############################################################################
