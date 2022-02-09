@@ -2,6 +2,7 @@
 # Author:       Ewan Carr
 # Started:      2022-01-11
 
+renv::activate()
 library(tidyverse)
 library(here)
 library(gtsummary)
@@ -44,14 +45,14 @@ x <- sel %>%
                            wsas ~ "Work and Social Adjustment Scale (WSAS)"))
 
 m <- sel %>%
-  select(t_label, psurev, tamrev, pc_useful_r, pc_ease_r) %>%
+  select(t_label, psurev, tamrev, useful, ease) %>%
   drop_na() %>%
   tbl_summary(by = t_label,
               missing_text = "Missing",
               label = list(psurev ~ "Post-Study System Usability Questionnaire (PSSUQ; reversed)",
                            tamrev ~ " Technology Acceptance Model (TAM; reversed)",
-                           pc_useful_r ~ "Perceived usefulness",
-                           pc_ease_r ~ "Perceived ease of use"))
+                           useful ~ "Perceived usefulness",
+                           ease ~ "Perceived ease of use"))
 
 y <- sel %>%
   select(t_label, wear_time_l3, total_phq8_l3) %>%
@@ -80,7 +81,7 @@ table1 <- tbl_stack(list(demo, x, m, y),
 sel %>%
   select(age, male, comorf, edyrs, inwork, t_label,
          ids, gad, wsas,
-         psurev, tamrev, pc_useful_r, pc_ease_r,
+         psurev, tamrev, useful, ease,
          wear_time_l3, total_phq8_l3) %>%
   drop_na() %>%
   summarise(across(everything(), function(x) { str_glue("{min(as.numeric(x), na.rm = TRUE)}, {max(as.numeric(x), na.rm = TRUE)}")})) %>%
@@ -99,8 +100,8 @@ pc <- c(tail(brewer.pal(6, "Blues"), 2),
 # Make plot for mediators
 labels <- data.frame(measure = c("psurev",
                                           "tamrev",
-                                          "pc_useful_r",
-                                          "pc_ease_r",
+                                          "useful",
+                                          "ease",
                                           "total_phq8_l3_of7",
                                           "wear_time_l3"),
                               label = factor(1:6,
@@ -137,7 +138,7 @@ p_t2 <- fu %>% drop_na(psurev) %>%
                      breaks = seq(0, 120, 20)) +
   coord_cartesian(ylim = c(0, 250))
 
-p_t3 <- ggplot(fu, aes(x = round(pc_useful_r))) +
+p_t3 <- ggplot(fu, aes(x = round(useful))) +
   stat_count(fill = pc[3],
              binwidth = 1) +
   theming +
@@ -217,8 +218,8 @@ calculate_correlation <- function(x, y, data, reps = 1000) {
 }
 
 x <- c("gad_1sd", "ids_1sd", "wsas_1sd",
-       "psurev_1sd", "tamrev_1sd", "pc_useful_r", "pc_ease_r")
-y <- c("psurev_1sd", "tamrev_1sd", "pc_useful_r", "pc_ease_r",
+       "psurev_1sd", "tamrev_1sd", "useful_1sd", "ease_1sd")
+y <- c("psurev_1sd", "tamrev_1sd", "useful_1sd", "ease_1sd",
        "wear_time_l3", "total_phq8_l3")
 
 opts <- cross2(x, y)
@@ -233,25 +234,25 @@ results <- pmap_dfr(list(key = opts, r = r),
 keepers <- rbind(# a-paths
                  c("gad_1sd", "psurev_1sd"),
                  c("gad_1sd", "tamrev_1sd"),
-                 c("gad_1sd", "pc_useful_r"),
-                 c("gad_1sd", "pc_ease_r"),
+                 c("gad_1sd", "useful_1sd"),
+                 c("gad_1sd", "ease_1sd"),
                  c("ids_1sd", "psurev_1sd"),
                  c("ids_1sd", "tamrev_1sd"),
-                 c("ids_1sd", "pc_useful_r"),
-                 c("ids_1sd", "pc_ease_r"),
+                 c("ids_1sd", "useful_1sd"),
+                 c("ids_1sd", "ease_1sd"),
                  c("wsas_1sd", "psurev_1sd"),
                  c("wsas_1sd", "tamrev_1sd"),
-                 c("wsas_1sd", "pc_useful_r"),
-                 c("wsas_1sd", "pc_ease_r"),
+                 c("wsas_1sd", "useful_1sd"),
+                 c("wsas_1sd", "ease_1sd"),
                  # b-paths
                  c("psurev_1sd", "wear_time_l3"),
                  c("psurev_1sd", "total_phq8_l3"),
                  c("tamrev_1sd", "wear_time_l3"),
                  c("tamrev_1sd", "total_phq8_l3"),
-                 c("pc_ease_r", "wear_time_l3"),
-                 c("pc_ease_r", "total_phq8_l3"),
-                 c("pc_useful_r", "wear_time_l3"),
-                 c("pc_useful_r", "total_phq8_l3"),
+                 c("ease_1sd", "wear_time_l3"),
+                 c("ease_1sd", "total_phq8_l3"),
+                 c("useful_1sd", "wear_time_l3"),
+                 c("useful_1sd", "total_phq8_l3"),
                  # c-paths
                  c("gad_1sd", "wear_time_l3"),
                  c("gad_1sd", "total_phq8_l3"),
@@ -267,7 +268,7 @@ results <- keepers %>% left_join(results)
 results$measure1 <- factor(results$measure1,
                            levels = c("gad_1sd", "ids_1sd", "wsas_1sd",
                                       "psurev_1sd", "tamrev_1sd",
-                                      "pc_ease_r", "pc_useful_r"),
+                                      "ease_1sd", "useful_1sd"),
                            labels = c("GAD-7", "IDS-SR", "WSAS",
                                       "PSSUQ\n(reversed)",
                                       "TAM-FF\n(reversed)",
@@ -276,7 +277,7 @@ results$measure1 <- factor(results$measure1,
 
 results$measure2 <- factor(results$measure2,
                            levels = c("psurev_1sd", "tamrev_1sd",
-                                      "pc_ease_r", "pc_useful_r",
+                                      "ease_1sd", "useful_1sd",
                                       "wear_time_l3", "total_phq8_l3"),
                            labels = c("PSSUQ\n(reversed)",
                                       "TAM-FF\n(reversed)",

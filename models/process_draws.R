@@ -2,6 +2,7 @@
 # Author:       Ewan Carr
 # Started:      2022-01-13
 
+renv::activate()
 library(tidyverse)
 library(ggh4x)
 library(here)
@@ -17,7 +18,8 @@ load(here("outputs", "posteriors.Rdata"), verbose = TRUE)
 
 extract_draws <- function(list_of_brmsfit) {
   post <- map_dfr(list_of_brmsfit, function(x) {
-                  f <- spread_draws(x, `b_.*_1sd$|b_.*_r$`, regex = TRUE)
+                  f <- spread_draws(x, 
+                                    `b_gad_1sd|b_ids_1sd|b_wsas_1sd|b_psurev_1sd|b_tamrev_1sd|b_ease_1sd|b_useful_1sd`, regex = TRUE)
                   if (ncol(f) == 4) {
                       names(f) <- c(".chain", ".iteration", ".draw", ".value")
                   } else if (ncol(f) == 5) {
@@ -28,6 +30,9 @@ extract_draws <- function(list_of_brmsfit) {
   return(post)
 }
 
+map(list(a = a_path), extract_draws)
+map(list(b = b_path), extract_draws)
+map(list(c = c_path), extract_draws)
 
 p <- map(list(a = a_path, b = b_path, c = c_path), extract_draws) %>%
        map(~ mutate(.x, model = str_replace_all(model, "1sd|l3|of", ""))) %>%
@@ -44,7 +49,6 @@ reshape_table <- function(tab, p = "a") {
     select(-path)
 }
 
-
 ###############################################################################
 ####                                                                      #####
 ####                     Models for 'FitBit wear time'                    #####
@@ -55,7 +59,7 @@ reshape_table <- function(tab, p = "a") {
 wear_time <- list(fit = list(b_path[[5]], b_path[[6]], b_path[[7]], b_path[[8]],
                              c_path[[1]], c_path[[2]], c_path[[3]]),
                   x = c(# b-paths
-                        "psurev_1sd", "tamrev_1sd", "pc_ease_r", "pc_useful_r",
+                        "psurev_1sd", "tamrev_1sd", "ease_1sd", "useful_1sd",
                         # c-paths
                         "ids_1sd", "gad_1sd", "wsas_1sd"),
                   label = c(rep("b_path", 4), rep("c_path", 3)))
@@ -71,25 +75,11 @@ extract_effect <- function(fit, param, diff = c(-0.5, 0.5)) {
   set_names(c("exposure", ".chain", ".iteration", ".draw", ".value")) 
 }
 
-calc_range <- function(x) {
-  med <- median(x, na.rm = TRUE)
-  return(seq(med - 1.5, med + 1.5, 0.5))
-}
-
 post_wt <- pmap_dfr(wear_time, function(fit, x, label) {
-                      if (x == "pc_ease_r") {
-                        comparison <- calc_range(sel$pc_ease_r)
-                      } else if (x == "pc_useful_r") {
-                        comparison <- calc_range(sel$pc_useful_r)
-                      } else {
-                        comparison <- seq(-1, 1, 0.5)
-                      }
+                      comparison <- seq(-1, 1, 0.5)
                       extract_effect(fit, x, diff = comparison) %>%
                         mutate(path = label, x = x)
           })
-
-
-  
 
 integer_breaks <- function(x) seq(ceiling(x[1]), floor(x[2]), by = 1)
 
@@ -99,9 +89,9 @@ plot_wt <- post_wt %>%
              y = .value,
              color = ordered(x))) +
   stat_lineribbon(alpha = 0.5, size = 0.75) +
-  facet_wrap(~ path + x,
-             scale = "free_x",
-             ncol = 4) +
+  facet_nested_wrap(~ path + x,
+                    scale = "free_x",
+                    ncol = 4) +
   scale_fill_brewer(palette = "Greys") +
   scale_color_brewer(type = "qual") +
   theme_minimal(base_family = "Times New Roman") + 
@@ -147,7 +137,7 @@ total_phq8 <- list(fit = list(b_path[[1]], b_path[[2]],
                               c_path[[4]], c_path[[5]],
                               c_path[[6]]),
                   x = c(# b-paths
-                        "psurev_1sd", "tamrev_1sd", "pc_ease_r", "pc_useful_r",
+                        "psurev_1sd", "tamrev_1sd", "ease_1sd", "useful_1sd",
                         # c-paths
                         "ids_1sd", "gad_1sd", "wsas_1sd"),
                   label = c(rep("b_path", 4), rep("c_path", 3)),
@@ -159,24 +149,20 @@ get_draws <- function(model,
                       use_1sd = TRUE, 
                       n_steps = 10) {
   gm <- function(x) { median(x, na.rm = TRUE) }
-  if (use_1sd) {
-    xr <- c(-1, 0, 1)
-  } else {
-    xr <- c(3, 4, 5)
-  }
-  at_medians <- data.frame(age = gm(data$age),
+  xr <- seq(-1, 1, 0.5)
+  at_medians <- data.frame(age_1sd = gm(data$age_1sd),
                            prevwear = gm(data$prevwear),
                            psurev_1sd = gm(data$psurev_1sd),
                            tamrev_1sd = gm(data$tamrev_1sd),
-                           pc_ease_r = gm(data$pc_ease_r),
-                           pc_useful_r = gm(data$pc_useful_r),
+                           ease_1sd = gm(data$ease_1sd),
+                           useful_1sd = gm(data$useful_1sd),
                            wsas = gm(data$wsas),
                            inwork = gm(data$inwork),
                            comorf = "0",
                            gad_1sd = gm(data$gad_1sd),
                            wsas_1sd = gm(data$wsas_1sd),
                            ids_1sd = gm(data$ids_1sd),
-                           edyrs = gm(data$edyrs)) %>%
+                           edyrs_1sd = gm(data$edyrs_1sd)) %>%
     select(-any_of(var))
   nd <- crossing({{var}} := xr, at_medians)
   draws <- epred_draws(model,
@@ -194,7 +180,7 @@ get_draws <- function(model,
 }
 
 
-post_draws <- pmap_dfr(total_phq8, 
+post_phq8 <- pmap_dfr(total_phq8, 
      function(fit, x, label, xr) {
        d <- get_draws(model = fit, 
                       var = x, 
@@ -206,7 +192,7 @@ post_draws <- pmap_dfr(total_phq8,
      }) %>%
   ungroup()
 
-plot_phq8 <- post_draws %>%
+plot_phq8 <- post_phq8 %>%
   ggplot(aes(x = exposure,
              y = mean_count,
              color = label)) +
@@ -294,3 +280,69 @@ ggsave(plot_med,
        width = 6,
        height = 5,
        dpi = 300)
+
+###############################################################################
+####                                                                      #####
+####         Make table showing 1SD effect sizes for all outcomes         #####
+####                                                                      #####
+###############################################################################
+
+make_cell <- function(est, lo, hi) {
+  return(paste0(str_glue("{sprintf('%.2f', est)} "),
+                str_glue("[{sprintf('%.2f', lo)}, "),
+                str_glue("{sprintf('%.2f', hi)}]")))
+}
+
+# Assumble results for a-paths
+tab_med <- post_med %>%
+  filter(exposure %in% c(-0.5, 0.5)) %>%
+  select(.draw, .value, y, y_label, exposure, x)  %>%
+  spread(exposure, .value) %>%
+  mutate(contrast = `0.5` - `-0.5`) %>%
+  group_by(x, y, y_label) %>%
+  median_qi(contrast) %>%
+  mutate(cell = make_cell(contrast, .lower, .upper)) %>%
+  select(y, x, cell) %>%
+  mutate(id = "a_path")
+
+a <- median(sel$ease_1sd, na.rm = TRUE)
+b <- median(sel$useful_1sd, na.rm = TRUE)
+
+# Assemble results for "Total PHQ-8 completions"
+tab_phq8 <- post_phq8 %>%
+  mutate(id = case_when((str_ends(label, "_1sd") & exposure == -0.5) ~ FALSE,
+                        (str_ends(label, "_1sd") & exposure == 0.5) ~ TRUE)) %>%
+  drop_na(id) %>%
+  select(.draw, id, mean_count, model, label) %>%
+  spread(id, mean_count) %>%
+  mutate(contrast = `TRUE` - `FALSE`) %>%
+  group_by(model, label) %>%
+  median_qi(contrast) %>% 
+  mutate(id = "phq8",
+         cell = make_cell(contrast, .lower, .upper)) %>%
+  select(id, path = model, x = label, cell) 
+
+
+# Assemble results for "FitBit wear time"
+tab_wt <- post_wt %>%
+  mutate(id = case_when((str_ends(x, "_1sd") & exposure == -0.5) ~ FALSE,
+                        (str_ends(x, "_1sd") & exposure == 0.5) ~ TRUE)) %>%
+  drop_na(id) %>%
+  ungroup() %>%
+  select(.draw, id, .value, path, x) %>%
+  spread(id, .value) %>%
+  mutate(contrast = `TRUE` - `FALSE`) %>%
+  group_by(path, x) %>%
+  median_qi(contrast) %>%
+  mutate(id = "wt",
+         cell = make_cell(contrast, .lower, .upper)) %>%
+  select(id, path, x, cell) 
+
+tab_med %>% spread(y, cell) %>%
+  write_csv("~/med.csv")
+
+tab <- full_join(tab_phq8, tab_wt) %>%
+  pivot_wider(names_from = "id",
+              values_from = "cell")
+
+write_csv(tab, "~/tab.csv")
