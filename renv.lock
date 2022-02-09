@@ -343,6 +343,13 @@
       "Repository": "RSPM",
       "Hash": "0f22be39ec1d141fd03683c06f3a6e67"
     },
+    "confintr": {
+      "Package": "confintr",
+      "Version": "0.1.2",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "5da21fdc0e28f7b13e41497ce75fbf7e"
+    },
     "cpp11": {
       "Package": "cpp11",
       "Version": "0.4.2",
@@ -518,6 +525,13 @@
       "Repository": "CRAN",
       "Hash": "7c89603d81793f0d5486d91ab1fc6f1d"
     },
+    "furrr": {
+      "Package": "furrr",
+      "Version": "0.2.3",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "2aba4ab06e8707ac054c6683cb6fed56"
+    },
     "future": {
       "Package": "future",
       "Version": "1.23.0",
@@ -566,6 +580,13 @@
       "Source": "Repository",
       "Repository": "RSPM",
       "Hash": "4c64a588b497f8c088e1d308ddd40bc6"
+    },
+    "ggh4x": {
+      "Package": "ggh4x",
+      "Version": "0.2.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "5e0b1591bf8489cfacdb5aecf1697626"
     },
     "ggplot2": {
       "Package": "ggplot2",
@@ -721,6 +742,13 @@
       "Repository": "RSPM",
       "Hash": "a525aba14184fec243f9eaec62fbed43"
     },
+    "huxtable": {
+      "Package": "huxtable",
+      "Version": "5.4.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "633926f3332d7a937ff16a8a98aa2192"
+    },
     "ids": {
       "Package": "ids",
       "Version": "1.0.1",
@@ -776,6 +804,13 @@
       "Source": "Repository",
       "Repository": "RSPM",
       "Hash": "98138e0994d41508c7a6b84a0600cfcb"
+    },
+    "jtools": {
+      "Package": "jtools",
+      "Version": "2.1.4",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "d391acc487c46c177db0da2c16a0b08e"
     },
     "knitr": {
       "Package": "knitr",
@@ -875,6 +910,13 @@
       "Repository": "RSPM",
       "Hash": "b8e6221fc11247b12ab1b055a6f66c27"
     },
+    "memoise": {
+      "Package": "memoise",
+      "Version": "2.0.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "e2817ccf4a065c5d9d7f2cfbe7c1d78c"
+    },
     "mgcv": {
       "Package": "mgcv",
       "Version": "1.8-38",
@@ -902,6 +944,13 @@
       "Source": "Repository",
       "Repository": "RSPM",
       "Hash": "eaee7d2a6f3ed4491df868611cb064cc"
+    },
+    "mitools": {
+      "Package": "mitools",
+      "Version": "2.4",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "a4b659bd0528226724d55034f11ed7cb"
     },
     "modelr": {
       "Package": "modelr",
@@ -980,6 +1029,13 @@
       "Repository": "RSPM",
       "Hash": "95e8c3825efcaad09411799da92c0af9"
     },
+    "pander": {
+      "Package": "pander",
+      "Version": "0.6.4",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "0eae8a954e0c51bd356f8c6f0e00e805"
+    },
     "parallelly": {
       "Package": "parallelly",
       "Version": "1.30.0",
@@ -993,6 +1049,13 @@
       "Source": "Repository",
       "Repository": "RSPM",
       "Hash": "ca7066d8c743f6c41bb2fcdb5ebb53bf"
+    },
+    "patchwork": {
+      "Package": "patchwork",
+      "Version": "1.1.1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "c446b30cb33ec125ff02588b60660ccb"
     },
     "performance": {
       "Package": "performance",
@@ -1301,6 +1364,20 @@
       "Source": "Repository",
       "Repository": "RSPM",
       "Hash": "0759e6b6c0957edb1311028a49a35e76"
+    },
+    "survey": {
+      "Package": "survey",
+      "Version": "4.1-1",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Hash": "8aec2bc6533a6d1e6ef43bbf0c20205a"
+    },
+    "survival": {
+      "Package": "survival",
+      "Version": "3.2-13",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "6f0a0fadc63bc6570fe172770f15bbc4"
     },
     "svUnit": {
       "Package": "svUnit",

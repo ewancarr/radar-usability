@@ -60,7 +60,10 @@ length(unique(sel$subject_id))
 # Standardise continuous variables -------------------------------------------
 
 sel <- sel %>%
-  mutate(across(c(ids, gad, wsas, psurev, tamrev, age),
+  rename(ease = pc_ease_r,
+         useful = pc_useful_r) %>%
+  mutate(across(c(ids, gad, wsas, psurev, tamrev, 
+                  ease, useful, age, edyrs),
                 scale,
                 .names = "{.col}_1sd"))
 
@@ -101,16 +104,16 @@ We'll fit a separate model for each 'a', 'b', and 'c' path.
 "
 1.   ids_1sd --> psurev
 2.   ids_1sd --> tamrev
-3.   ids_1sd --> pc_ease_r
-4.   ids_1sd --> pc_useful_r
+3.   ids_1sd --> ease
+4.   ids_1sd --> useful
 5.   gad_1sd --> psurev
 6.   gad_1sd --> tamrev
-7.   gad_1sd --> pc_ease_r
-8.   gad_1sd --> pc_useful_r
+7.   gad_1sd --> ease
+8.   gad_1sd --> useful
 9.   wsas_1sd --> psurev
 10.  wsas_1sd --> tamrev
-11.  wsas_1sd --> pc_ease_r
-12.  wsas_1sd --> pc_useful_r
+11.  wsas_1sd --> ease
+12.  wsas_1sd --> useful
 "
 
 d1 <- dagitty('dag {
@@ -148,27 +151,30 @@ d1 <- dagitty('dag {
               wsas -> usability
               }')
 
-plot(d1)
 adjustmentSets(d1)
+plot(d1)
+
 
 # Fit linear mixed models -----------------------------------------------------
 
 if (refit) {
-  models <- list(# wsas
-                 wsas_psu = "psurev ~ wsas_1sd + age + edyrs + (1 | pid)",
-                 wsas_tam = "tamrev ~ wsas_1sd + age + edyrs + (1 | pid)",
-                 wsas_useful = "pc_useful_r ~ wsas_1sd + age + edyrs + (1 | pid)",
-                 wsas_ease = "pc_ease_r ~ wsas_1sd + age + edyrs + (1 | pid)",
-                 # ids
-                 ids_psu = "psurev ~ ids_1sd + age + edyrs + (1 | pid)",
-                 ids_tam = "tamrev ~ ids_1sd + age + edyrs + (1 | pid)",
-                 ids_useful = "pc_useful_r ~ ids_1sd + age + edyrs + (1 | pid)",
-                 ids_ease = "pc_ease_r ~ ids_1sd + age + edyrs + (1 | pid)",
-                 # gad
-                 gad_psu = "psurev ~ gad_1sd + age + edyrs + (1 | pid)",
-                 gad_tam = "tamrev ~ gad_1sd + age + edyrs + (1 | pid)",
-                 gad_useful = "pc_useful_r ~ gad_1sd + age + edyrs + (1 | pid)",
-                 gad_ease = "pc_ease_r ~ gad_1sd + age + edyrs + (1 | pid)")
+  models <- list(
+    # wsas
+    wsas_psu    = "psurev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    wsas_tam    = "tamrev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    wsas_useful = "useful ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    wsas_ease   = "ease   ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    # ids
+    ids_psu     = "psurev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    ids_tam     = "tamrev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    ids_useful  = "useful ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    ids_ease    = "ease   ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    # gad
+    gad_psu     = "psurev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    gad_tam     = "tamrev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    gad_useful  = "useful ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+    gad_ease    = "ease   ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)"
+  )
   a_path <- map(models, 
                 ~ brm(as.formula(.x),
                       data = sel,
@@ -187,14 +193,14 @@ if (refit) {
 Wear time
 13. wear_time, psurev
 14. wear_time, tamrev
-15. wear_time, pc_ease_r
-16. wear_time, pc_useful_r
+15. wear_time, ease
+16. wear_time, useful
 
 PHQ-8 completions
 17. total_phq8, psurev
 18. total_phq8, tamrev
-19. total_phq8, pc_ease_r
-20. total_phq8, pc_useful_r
+19. total_phq8, use
+20. total_phq8, useful
 "
 
 d2 <- dagitty('dag {
@@ -262,13 +268,13 @@ sel <- sel %>%
 
 opts <- list(m = c("psurev_1sd",
                    "tamrev_1sd",
-                   "pc_ease_r",
-                   "pc_useful_r"),
+                   "ease_1sd",
+                   "useful_1sd"),
              y = c("total_phq8_l3_of7",
                    "wear_time_l3")) %>%
   cross()
 
-adjust <- "age + edyrs + prevwear + wsas"
+adjust <- "age_1sd + edyrs_1sd + prevwear + wsas"
 
 b_path <- map(opts, function(i) {
                f <- as.formula(str_glue("{i$y} ~ {i$m} + {adjust} + (1 | pid)"))
@@ -361,7 +367,7 @@ adjustmentSets(d3)
 
 opts <- cross(list(x = c("ids_1sd", "gad_1sd", "wsas_1sd"),
                    y = c("wear_time_l3", "total_phq8_l3_of7")))
-adj <- "age + comorf + edyrs + inwork + prevwear"
+adj <- "age_1sd + comorf + edyrs_1sd + inwork + prevwear"
 
 fit_c <- function(formula, data, fam, iter) {
   fit <- brm(
