@@ -146,7 +146,7 @@ p_t3 <- ggplot(fu, aes(x = round(useful))) +
   coord_cartesian(ylim = c(0, 250)) +
   scale_x_continuous(breaks = 0:7)
 
-p_t4 <- ggplot(fu, aes(x = round(pc_ease_r))) +
+p_t4 <- ggplot(fu, aes(x = round(ease))) +
   stat_count(fill = pc[4],
              binwidth = 1) +
   labs(title = "Perceived\nease of use") +
