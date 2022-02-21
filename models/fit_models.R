@@ -6,19 +6,13 @@ renv::activate()
 library(here)
 library(tidyverse)
 library(naniar)
-library(broom)
-library(gtsummary)
 library(dagitty)
-library(lme4)
-library(broom.mixed)
 library(brms)
-library(sjPlot)
 library(cmdstanr)
-library(modelr)
 library(tidybayes)
 load(here("data", "clean", "merged.Rdata"), verbose = TRUE)
 load(here("data", "clean", "selected.Rdata"), verbose = TRUE)
-refit <- TRUE
+load(here("outputs", "dags.Rdata"), verbose = TRUE)
 n_iter <- 1e4
 set_cmdstan_path("~/.cmdstan/cmdstan-2.28.2")
 options(mc.cores = 24,
@@ -42,17 +36,18 @@ sel <- merged %>%
          # Mediators
          psurev,
          tamrev,
-         pc_ease_r,
-         pc_useful_r,
+         ease,
+         useful,
          # Outcomes
          wear_time_l3,
-         total_phq8_l3,
+         n_phq_f,
          # Covariates
          age,
          comorf,
          edyrs,
          inwork,
-         prevwear) %>%
+         prevwear,
+         n_lte_f) %>%
   ungroup() 
 nrow(sel)
 length(unique(sel$subject_id))
@@ -60,8 +55,6 @@ length(unique(sel$subject_id))
 # Standardise continuous variables -------------------------------------------
 
 sel <- sel %>%
-  rename(ease = pc_ease_r,
-         useful = pc_useful_r) %>%
   mutate(across(c(ids, gad, wsas, psurev, tamrev, 
                   ease, useful, age, edyrs),
                 scale,
@@ -70,34 +63,9 @@ sel <- sel %>%
 # Create numeric ID variable --------------------------------------------------
 sel$pid <- as.numeric(as.factor(sel$subject_id))
 
-# Define models ---------------------------------------------------------------
-
-"
-We have three exposures (X):
-
-- ids
-- gad
-- wsas
-
-Four mediators (M):
-
-- psurev
-- tamrev
-- pc_useful_r
-- pc_ease_r
-
-Two outcomes (Y):
-
-- wear_time_l3
-- total_phq8_l3
-
-We'll fit a separate model for each 'a', 'b', and 'c' path.
-"
-
-
 ###############################################################################
 ####                                                                      #####
-####                                a-paths                               #####
+####                 H1: Clinical variables --> Usability                 #####
 ####                                                                      #####
 ###############################################################################
 
@@ -116,76 +84,47 @@ We'll fit a separate model for each 'a', 'b', and 'c' path.
 12.  wsas_1sd --> useful
 "
 
-d1 <- dagitty('dag {
-              "benefit receipt" [pos="0.235,0.358"]
-              "in work" [pos="0.343,0.601"]
-              "previous wearable use" [pos="0.693,0.267"]
-              "switch from iphone" [pos="0.567,0.252"]
-              age [pos="0.396,0.140"]
-              comorbidities [pos="0.246,0.253"]
-              education [pos="0.233,0.460"]
-              gender [pos="0.448,0.140"]
-              partner [pos="0.329,0.246"]
-              usability [outcome,pos="0.576,0.414"]
-              wsas [exposure,pos="0.449,0.523"]
-              "benefit receipt" -> wsas
-              "in work" -> "benefit receipt"
-              "in work" -> comorbidities [pos="0.297,0.401"]
-              "in work" -> wsas
-              "previous wearable use" -> usability
-              "switch from iphone" -> usability
-              age -> "in work"
-              age -> comorbidities
-              age -> partner
-              age -> usability
-              age -> wsas
-              comorbidities -> "benefit receipt"
-              comorbidities -> wsas
-              education -> "benefit receipt"
-              education -> "in work"
-              education -> comorbidities [pos="0.171,0.374"]
-              education -> usability
-              education -> wsas
-              gender -> wsas
-              partner -> usability
-              wsas -> usability
-              }')
-
 adjustmentSets(d1)
-plot(d1)
-
 
 # Fit linear mixed models -----------------------------------------------------
 
-if (refit) {
-  models <- list(
-    # wsas
-    wsas_psu    = "psurev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    wsas_tam    = "tamrev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    wsas_useful = "useful ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    wsas_ease   = "ease   ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    # ids
-    ids_psu     = "psurev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    ids_tam     = "tamrev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    ids_useful  = "useful ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    ids_ease    = "ease   ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    # gad
-    gad_psu     = "psurev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    gad_tam     = "tamrev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    gad_useful  = "useful ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
-    gad_ease    = "ease   ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)"
-  )
-  a_path <- map(models, 
+spec_h1 <- list(
+  # wsas
+  wsas_psu    = "psurev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  wsas_tam    = "tamrev ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  wsas_useful = "useful ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  wsas_ease   = "ease   ~ wsas_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  # ids
+  ids_psu     = "psurev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  ids_tam     = "tamrev ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  ids_useful  = "useful ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  ids_ease    = "ease   ~ ids_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  # gad
+  gad_psu     = "psurev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  gad_tam     = "tamrev ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  gad_useful  = "useful ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)",
+  gad_ease    = "ease   ~ gad_1sd + age_1sd + edyrs_1sd + (1 | pid)"
+)
+
+
+prior_h1 <- list(
+  set_prior("normal(-5, 15)", class = "b"),      # X --> psurev [0-112]
+  set_prior("normal(-5, 15)", class = "b"),      # X --> tamrev [0-114]
+  set_prior("normal(-1, 3)", class = "b"),       # X --> useful [0-7]
+  set_prior("normal(-1, 3)", class = "b")        # X --> ease   [0-7]
+)
+
+fit_h1 <- map2(spec_h1,
+               rep(prior_h1, 3),
                 ~ brm(as.formula(.x),
                       data = sel,
                       iter = n_iter,
+                      prior = .y,
                       threads = threading(6)))
-}
-
 
 ###############################################################################
 ####                                                                      #####
-####                                b-paths                               #####
+####                      H2: Usability --> Usage                         #####
 ####                                                                      #####
 ###############################################################################
 
@@ -197,55 +136,12 @@ Wear time
 16. wear_time, useful
 
 PHQ-8 completions
-17. total_phq8, psurev
-18. total_phq8, tamrev
-19. total_phq8, use
-20. total_phq8, useful
+17. n_phq_of, psurev
+18. n_phq_of, tamrev
+19. n_phq_of, use
+20. n_phq_of, useful
 "
 
-d2 <- dagitty('dag {
-bb="0,0,1,1"
-"benefit receipt" [pos="0.248,0.369"]
-"in work" [pos="0.300,0.598"]
-"previous wearable use" [pos="0.596,0.333"]
-"switch from iphone" [pos="0.530,0.204"]
-age [pos="0.396,0.140"]
-comorbidities [pos="0.260,0.243"]
-education [pos="0.226,0.493"]
-gender [pos="0.461,0.162"]
-partner [pos="0.304,0.156"]
-usability [exposure,pos="0.488,0.338"]
-wear_time [outcome,pos="0.617,0.484"]
-wsas [pos="0.365,0.495"]
-"benefit receipt" -> wsas
-"in work" -> "benefit receipt"
-"in work" -> comorbidities [pos="0.297,0.401"]
-"in work" -> wear_time [pos="0.483,0.573"]
-"in work" -> wsas
-"previous wearable use" -> usability
-"previous wearable use" -> wear_time
-"switch from iphone" -> usability
-age -> "in work"
-age -> comorbidities
-age -> partner
-age -> usability
-age -> wsas
-comorbidities -> "benefit receipt"
-comorbidities -> wear_time
-comorbidities -> wsas
-education -> "benefit receipt"
-education -> "in work"
-education -> comorbidities [pos="0.171,0.374"]
-education -> usability
-education -> wsas
-gender -> wsas
-partner -> usability
-usability -> wear_time
-wsas -> usability
-wsas -> wear_time
-}')
-
-plot(d2)
 adjustmentSets(d2)
 
 # Create ordinal measure of "Number of PHQ-8 completions" ---------------------
@@ -255,14 +151,7 @@ adjustmentSets(d2)
 # values together to form the K categories, our simulation studies suggest that
 # when the number of groups is too small, one will lose some efficiency."
 
-sel <- sel %>%
-  mutate(total_phq8_l3_of = factor(total_phq8_l3,
-                                   ordered = TRUE,
-                                   levels = 0:9),
-         total_phq8_l3_of7 = factor(if_else(total_phq8_l3 >= 7,
-                                            7, total_phq8_l3),
-                                    ordered = TRUE,
-                                    levels = 0:7))
+sel$n_phq_of = factor(sel$n_phq_f, ordered = TRUE, levels = 0:6)
 
 # Fit model for each combination of mediator and outcome ----------------------
 
@@ -270,16 +159,16 @@ opts <- list(m = c("psurev_1sd",
                    "tamrev_1sd",
                    "ease_1sd",
                    "useful_1sd"),
-             y = c("total_phq8_l3_of7",
+             y = c("n_phq_of",
                    "wear_time_l3")) %>%
   cross()
 
 adjust <- "age_1sd + edyrs_1sd + prevwear + wsas"
 
-b_path <- map(opts, function(i) {
+fit_h2 <- map(opts, function(i) {
                f <- as.formula(str_glue("{i$y} ~ {i$m} + {adjust} + (1 | pid)"))
                cat(str_glue("\nFitting model for: {i$m} --> {i$y}\n{f}\n\n"))
-               if (i$y == "total_phq8_l3_of7") {
+               if (i$y == "n_phq_of") {
                  # Fit sequential ordinal model for 'Total PHQ-8 completions'
                  fit <- brm(f,
                             family = sratio("cloglog"),
@@ -300,11 +189,9 @@ b_path <- map(opts, function(i) {
                return(fit)
              })
 
-names(b_path) <- make_labels(opts)
-
 ###############################################################################
 ####                                                                      #####
-####                                c-paths                               #####
+####                H3: Clinical variables --> Usage                      #####
 ####                                                                      #####
 ###############################################################################
 
@@ -315,100 +202,52 @@ Wear time
 23. wsas_1sd --> wear_time_l3
 
 PHQ-8 completions
-24. ids_1sd --> total_phq8_l3_of
-25. gad_1sd ---> total_phq8_l3_of
-26. wsas_1sd --> total_phq8_l3_of
+24. ids_1sd --> n_phq_of
+25. gad_1sd --> n_phq_of
+26. wsas_1sd --> n_phq_of
 "
 
-d3 <- dagitty('dag {
-bb="0,0,1,1"
-"benefit receipt" [pos="0.248,0.369"]
-"in work" [adjusted,pos="0.300,0.598"]
-"previous wearable use" [adjusted,pos="0.587,0.286"]
-"switch from iphone" [pos="0.530,0.204"]
-age [adjusted,pos="0.396,0.140"]
-comorbidities [adjusted,pos="0.260,0.243"]
-education [adjusted,pos="0.228,0.504"]
-gender [pos="0.448,0.140"]
-partner [pos="0.304,0.156"]
-usability [pos="0.488,0.338"]
-wear_time [outcome,pos="0.617,0.484"]
-wsas [exposure,pos="0.365,0.495"]
-"benefit receipt" -> wsas
-"in work" -> "benefit receipt"
-"in work" -> comorbidities [pos="0.297,0.401"]
-"in work" -> wear_time [pos="0.483,0.573"]
-"in work" -> wsas
-"previous wearable use" -> usability
-"previous wearable use" -> wear_time
-"switch from iphone" -> usability
-age -> "in work"
-age -> comorbidities
-age -> partner
-age -> usability
-age -> wsas
-comorbidities -> "benefit receipt"
-comorbidities -> wear_time
-comorbidities -> wsas
-education -> "benefit receipt"
-education -> "in work"
-education -> comorbidities [pos="0.171,0.374"]
-education -> usability
-education -> wsas
-gender -> wsas
-partner -> usability
-usability -> wear_time
-wsas -> usability
-wsas -> wear_time
-}')
+spec_h3 <- cross(list(x = c("ids_1sd", "gad_1sd", "wsas_1sd"),
+                      y = c("wear_time_l3", "n_phq_of")))
 
-plot(d3)
-adjustmentSets(d3)
+adj <- "age_1sd + comorf + edyrs_1sd + inwork + prevwear + n_lte_f"
 
-opts <- cross(list(x = c("ids_1sd", "gad_1sd", "wsas_1sd"),
-                   y = c("wear_time_l3", "total_phq8_l3_of7")))
-adj <- "age_1sd + comorf + edyrs_1sd + inwork + prevwear"
-
-fit_c <- function(formula, data, fam, iter) {
-  fit <- brm(
-    formula,
-    family = fam,
-    data = data,
-    iter = iter,
-    cores = 24,
-    chains = 4,
-    backend = "cmdstanr",
-    threads = threading(6),
-    inits = 0,
-    control = list(adapt_delta = 0.99),
-    seed = 42
-  )
+fit_single_model <- function(formula, data, fam, iter) {
+  fit <- brm(formula,
+             family = fam,
+             data = data,
+             iter = iter,
+             cores = 24,
+             chains = 4,
+             backend = "cmdstanr",
+             threads = threading(6),
+             inits = 0,
+             control = list(adapt_delta = 0.99),
+             seed = 42)
   return(fit)
 }
 
-if (refit) {
-  c_path <- map(opts, function(i) {
-                  if (i$y == "wear_time_l3") {
-                    fam = zero_inflated_beta()
-                    rhs = str_glue("{i$x} + {adj} + (1 | pid)")
-                    f <- bf(as.formula(str_glue("wear_time_l3 ~ {rhs}")),
-                            as.formula(str_glue("zi ~ {rhs}")),
-                            as.formula(str_glue("phi ~ {i$x}")))
-                  } else {
-                    fam = sratio("cloglog")
-                    f <- str_glue("{i$y} ~ {i$x} + {adj}")
-                  }
-                  return(fit_c(formula = f, 
-                               data = sel, 
-                               fam = fam,
-                               iter = n_iter))
-  })
-}
-names(c_path) <- make_labels(opts)
+fit_h3 <- map(spec_h3, function(i) {
+                if (i$y == "wear_time_l3") {
+                  fam = zero_inflated_beta()
+                  rhs = str_glue("{i$x} + {adj} + (1 | pid)")
+                  f <- bf(as.formula(str_glue("wear_time_l3 ~ {rhs}")),
+                          as.formula(str_glue("zi ~ {rhs}")),
+                          as.formula(str_glue("phi ~ {i$x}")))
+                } else {
+                  fam = sratio("cloglog")
+                  f <- str_glue("{i$y} ~ {i$x} + {adj}")
+                }
+                return(fit_single_model(formula = f, 
+                                        data = sel, 
+                                        fam = fam,
+                                        iter = n_iter))
+})
+names(fit_h3) <- make_labels(spec_h3)
 
 # Save ------------------------------------------------------------------------
 
-save(a_path, b_path, c_path,
+save(fit_h1, fit_h2, fit_h3,
      file = here("outputs", "posteriors.Rdata"))
 
 save(sel,
