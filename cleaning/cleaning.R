@@ -176,10 +176,10 @@ survey <- survey %>%
            fut = sum(c_across(c(future_1, future_2, future_3, future_4))),
            # Perceived usefulness (mean score, reversed)
            pc_useful = mean(c_across(starts_with("tam_usefulness"))),
-           pc_useful_r = 7 - pc_useful,
+           useful = 7 - pc_useful,
            # Perceived ease of use (mean score, reversed)
            pc_ease = mean(c_across(starts_with("tam_ease_of_use"))),
-           pc_ease_r = 7 - pc_ease) %>%
+           ease = 7 - pc_ease) %>%
     ungroup()
 
 # Derive dates ----------------------------------------------------------------
@@ -326,6 +326,10 @@ phq8 <- lookup %>%
     i$n_phq <- nrow(x)
     return(i) }) %>%
   select(subject_id, t, n_phq)
+
+phq8$n_phq_f <- factor(if_else(phq8$n_phq > 6, 6, phq8$n_phq),
+                       levels = 0:7,
+                       labels = paste0(0:6TRUE ~ phq, level
 
 ###############################################################################
 ####                                                                      #####
