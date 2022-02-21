@@ -10,106 +10,140 @@ library(haven)
 library(janitor)
 library(lubridate)
 library(naniar)
+library(readxl)
+
+parse_event <- function(event) {
+  if_else(event == "enrolment_arm_1",
+          "0",
+          str_replace(event, "_month_assessmen[t]*_arm_1", ""))
+}
 
 # Load survey data ------------------------------------------------------------
 
-dat <- read_dta(here("data", "survey", "extended_data_2021_09_30.dta")) %>%
-    rename(event = redcap_event_name,
-           fut = Followuptime,
+extended_data <- read_dta(here("data",
+                               "survey",
+                               "extended_data_2021_09_30.dta")) %>%
+    rename(fut = Followuptime,
            psu = PSSUQ_TOTAL,
            eth = ETHCAT2,
            tam = TAM_TOTAL) %>%
     clean_names() %>%
-    mutate(
-        event = if_else(event == "enrolment_arm_1",
-            "0",
-            str_replace(
-                event,
-                "_month_assessmen[t]*_arm_1",
-                ""
-            )
-        ),
-        t = as.numeric(event),
-        pid = as.numeric(as.factor(subject_id)),
-        male = as.numeric(gender) == 0,
-        partner = as.numeric(marital_status) == 1,
-        edyrs = as.numeric(education_years),
-        smoker = as.numeric(mh_smoking) == 2,
-        anyben = as.numeric(benefits_type_10 == 0),
-        wsas = as.numeric(wsas_total),
-        gad = as.numeric(gad7_total),
-        phq = as.numeric(total_phq8),
-        ids = as.numeric(ids_total),
-        site = as.numeric(recruitmentsite),
-        survey_time = ymd_hms(na_if(pssuq_timestamp, "[not completed]")),
-        debt = case_when(
-            utilities_10 == 1 ~ FALSE,
-            utilities_10 == 0 ~ TRUE,
-            TRUE ~ NA
-        ),
-        prevwear = as.numeric(fitness_tracker_used),
-        bame = if_else(is.na(eth), NA, as.numeric(eth) %in% 2:5)
-    ) %>%
-    drop_na(pid, t, fut)
+    mutate(event = parse_event(redcap_event_name),
+           t = as.numeric(event),
+           pid = as.numeric(as.factor(subject_id)),
+           male = as.numeric(gender) == 0,
+           partner = as.numeric(marital_status) == 1,
+           edyrs = as.numeric(education_years),
+           smoker = as.numeric(mh_smoking) == 2,
+           anyben = as.numeric(benefits_type_10 == 0),
+           wsas = as.numeric(wsas_total),
+           gad = as.numeric(gad7_total),
+           phq = as.numeric(total_phq8),
+           ids = as.numeric(ids_total),
+           site = as.numeric(recruitmentsite),
+           survey_time = ymd_hms(na_if(pssuq_timestamp, "[not completed]")),
+           debt = case_when(utilities_10 == 1 ~ FALSE,
+                            utilities_10 == 0 ~ TRUE,
+                            TRUE ~ NA),
+           prevwear = as.numeric(fitness_tracker_used),
+           bame = if_else(is.na(eth), NA, as.numeric(eth) %in% 2:5)) %>%
+    drop_na(pid, t, fut) %>%
+    select(-enrolment_date,
+           -redcap_event_name,
+           -ends_with("_timestamp"),
+           -event,
+           -survey_time)
 
 # Get extra information in larger dataset -------------------------------------
 
-extra <- read_dta(here("data", "survey",
-                       "SwitchandPhysicalHealthData.dta")) %>%
-    clean_names() %>%
-    select(subject_id,
-        starts_with("mh_longst_illness_"),
-        smartphone_type,
-        employ = csri_7,
-        enrol_date = enrolmentdate
-    ) %>%
-    # Remove 'Depression' comorbidity
-    select(-mh_longst_illness_type_4a) %>%
-    mutate(across(starts_with("mh_longst_illness_type_"), as.numeric),
-        comor = rowSums(across(starts_with("mh_longst_illness_type_"))),
-        comorf = factor(if_else(comor > 2, 2, comor),
-            levels = 0:2,
-            labels = c("0", "1", "2+")
-        ),
-        switchedphone = as.numeric(smartphone_type),
-        enrol_date = ymd(enrol_date),
-        inwork = case_when(employ %in% c(0, 2, 5) ~ TRUE,
-                           employ %in% c(1, 3, 4, 6, 7, 8, 
-                                         9, 10, 11, 12) ~ FALSE,
-                           TRUE ~ NA)
-    )
+total_dataset <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
+  clean_names() %>%
+  select(subject_id,
+         redcap_event_name,
+         smartphone_type,
+         enrolment_date,
+         employ = csri_7,
+         ids_date = id_sdate,
+         lte_sr_timestamp, ids_sr_timestamp,
+         cidi_sf_timestamp, gad7_timestamp,
+         wsas_timestamp, bipq_timestamp,
+         csri_timestamp, pssuq_timestamp,
+         starts_with("mh_longst_illness_"),
+         # Remove 'Depression' comorbidity
+         -mh_longst_illness_type_4a) %>%
+  mutate(event = parse_event(redcap_event_name),
+         t = as.numeric(event),
+         # Get survey time, as first non-missing value from various timestamps
+         across(c(lte_sr_timestamp, ids_sr_timestamp,
+                  cidi_sf_timestamp, gad7_timestamp,
+                  wsas_timestamp, bipq_timestamp,
+                  csri_timestamp, pssuq_timestamp),
+                ~ case_when(.x == "" ~ NA_character_,
+                            .x == "[not completed]" ~ NA_character_,
+                            nchar(.x) < 15 ~ paste0(.x, " 12:00:00"),
+                            TRUE ~ .x)),
+         survey_timestamp = coalesce(lte_sr_timestamp, ids_sr_timestamp,
+                                     cidi_sf_timestamp, gad7_timestamp,
+                                     wsas_timestamp, bipq_timestamp,
+                                     csri_timestamp, pssuq_timestamp),
+         survey_timestamp = ymd_hms(survey_timestamp),
+         survey_date = coalesce(ids_date, as_date(survey_timestamp)),
+         # Comorbid conditions
+         across(starts_with("mh_longst_illness_type_"), as.numeric),
+         comor = rowSums(across(starts_with("mh_longst_illness_type_"))),
+         comorf = factor(if_else(comor > 2, 2, comor),
+                         levels = 0:2,
+                         labels = c("0", "1", "2+")),
+         # Other variables
+         switchedphone = as.numeric(smartphone_type),
+         enrol_date = ymd(enrolment_date),
+         inwork = case_when(employ %in% c(0, 2, 5) ~ TRUE,
+                            employ %in% c(1, 3, 4, 6, 7, 8, 
+                                          9, 10, 11, 12) ~ FALSE,
+                            TRUE ~ NA))
 
-# Select baseline variables ---------------------------------------------------
+# Manually replace "survey_time" for two participants with data from Faith ----
 
-baseline <- dat %>%
+total_dataset[
+    total_dataset$subject_id == "35287589-fcfd-423f-8a08-500dbcec2922" &
+    total_dataset$t == 12, 
+  ]$survey_date <- ymd("2020-11-05")
+
+total_dataset[
+    total_dataset$subject_id == "deeeadb9-ead2-42c3-8efe-afebf1f08f13" &
+    total_dataset$t == 3, 
+  ]$survey_date <- ymd("2019-04-18")
+
+# Merge both survey datasets --------------------------------------------------
+
+table(unique(extended_data$subject_id) %in% unique(total_dataset$subject_id)) 
+survey <- full_join(extended_data,
+                    total_dataset,
+                    by = c("subject_id", "t"))
+
+# Check: how many people are missing survey_time?
+survey %>%
+  filter(t %in% c(3, 12),
+         is.na(survey_date)) %>%
+  pluck("subject_id")
+
+# Copy enrolment values of covariates into subsequent rows --------------------
+
+survey <- survey %>%
     group_by(subject_id) %>%
-    select(subject_id, pid, age, male, bame,
-           anyben, smoker, partner, phq,
-           edyrs, site, debt, prevwear) %>%
-    summarise(across(everything(), 
-                     ~ first(na.omit(.x))))
-
-# Merge with extra variables (smartphone, physical comorbidities) -------------
-
-table(unique(extra$subject_id) %in% unique(baseline$subject_id))
-baseline <- full_join(baseline, extra, by = "subject_id")
-
-# Select longitudinal variables -----------------------------------------------
-
-long <- dat %>%
-    select(subject_id, t, survey_time, psu, tam, wsas, gad, ids,
-           starts_with("tam_usefulness"),
-           starts_with("tam_ease_of_use"),
-           future_1 = tam_usage_1,
-           future_2 = tam_usage_2,
-           future_3 = tam_usage_3,
-           future_4 = tam_usage_4) %>%
-    drop_na(subject_id, t)
+    mutate(across(c(enrol_date, pid, age, male, bame,
+                  anyben, smoker, partner, phq,
+                  comorf, switchedphone, inwork,
+                  edyrs, site, debt, prevwear),
+                  ~ first(na.omit(.x))))
 
 # Recode longitudinal measures ------------------------------------------------
 
-long <- long %>%
-    # Reverse direction of PSU and TAM
+survey <- survey %>%
+  rename(future_1 = tam_usage_1,
+         future_2 = tam_usage_2,
+         future_3 = tam_usage_3,
+         future_4 = tam_usage_4) %>%
     mutate(psurev = (19 * 7) - psu,             # 19 questions, each scored 0-7
            tamrev = (16 * 7) - tam,             # 16 questions, each scored 0-7
            tf = as.factor(t),
@@ -127,8 +161,7 @@ long <- long %>%
 
 # Derive dates ----------------------------------------------------------------
 
-long <- long %>%
-    left_join(select(baseline, subject_id, enrol_date), by = "subject_id") %>%
+survey <- survey %>%
     arrange(subject_id, t) %>%
     complete(subject_id, t) %>%
     group_by(subject_id) %>%
@@ -138,12 +171,21 @@ long <- long %>%
            t_d29 = round(floor(since / 29)))
 
 # Manual fix: replace 25 with 24.
-long$t_d29[long$t_d29 == 25] <- 24
+survey$t_d29[survey$t_d29 == 25] <- 24
 
-# Merge baseline and longitudinal measures ------------------------------------
+###############################################################################
+####                                                                      #####
+####                Calculate change in clinical variables                #####
+####                                                                      #####
+###############################################################################
 
-clean <- long %>%
-    full_join(select(baseline, -enrol_date), by = "subject_id")
+survey <- survey %>%
+  complete(subject_id, t)  %>%
+  arrange(subject_id, t) %>%
+  group_by(subject_id) %>%
+  mutate(across(c(ids, wsas, gad),
+                ~ .x - lag(.x),
+                .names = "{.col}_lag"))
 
 ###############################################################################
 ####                                                                      #####
@@ -170,18 +212,17 @@ app <- dir_ls(here("data", "firebase", "2021-09-16"), glob = "*.csv") %>%
            e_durmsec = as.numeric(engagement_time_msec),
            e_month = month(e_ts),
            e_yr = year(e_ts)) %>%
-    filter(subject_id %in% unique(clean$subject_id))
+    filter(subject_id %in% unique(survey$subject_id))
 
 # Derive timepoints -----------------------------------------------------------
 
 # Get enrolment date from survey data
-app <- select(clean, subject_id, enrol_date) %>%
+app <- select(survey, subject_id, enrol_date) %>%
     distinct() %>%
     right_join(app)
 
 # Calculate 't_d29' (i.e. Dan's time variable) by dividing number of days
 # between enrolment and now by 29.
-
 app <- app %>%
     mutate(since = interval(enrol_date, e_ts) / days(1),
         t_d29 = round(floor(since / 29)))
@@ -217,15 +258,51 @@ from_dan <- read_csv(here("data", "from_dan", "data_requested.csv")) %>%
     clean_names()
 
 # Check: what is the first timepoint for each person?
-
 from_dan <- from_dan %>%
-  select(subject_id, matches("_[0-9]+$")) %>%
+  select(subject_id, days_in_study, matches("_[0-9]+$")) %>%
   gather(k, value, -subject_id) %>%
   mutate(t_d29 = parse_number(str_extract(k, "[0-9]+$")),
          measure = str_match(k, "^(.*)_[0-9]+$")[, 2]) %>%
   select(-k) %>%
   spread(measure, value) %>%
   arrange(subject_id, t_d29)
+
+###############################################################################
+####                                                                      #####
+####                    Prepare RADAR PHQ-8 data                          #####
+####                                                                      #####
+###############################################################################
+
+lookup <- survey %>%
+  select(subject_id, t, survey_date) %>%
+  filter(t %in% c(3, 12),
+         !is.na(survey_date)) %>%
+  mutate(window_start = survey_date,
+         window_end = survey_date + weeks(12))
+
+radphq <- read_csv(here("data", "radar", "phq8_data.csv")) %>%
+  clean_names()
+
+phq8_timings <- radphq %>%
+  select(subject_id = user_id, 
+         time_completed_utc) %>%
+  filter(subject_id %in% lookup$subject_id) %>%
+  mutate(time_completed_utc = as_datetime(time_completed_utc)) %>%
+  select(subject_id, phq_time = time_completed_utc)
+
+phq8 <- lookup %>%
+  group_by(subject_id, t) %>%
+  group_split() %>%
+  map_dfr(function(i) {
+    x <- phq8_timings[(phq8_timings$subject_id == i$subject_id &
+                       phq8_timings$phq_time > i$window_start &
+                       phq8_timings$phq_time < i$window_end), ]
+    x$wk <- week(x$phq_time)
+    # Use slice_sample to select a single PHQ-8 response per week
+    x <- group_by(x, wk) %>% slice_sample(n = 1)
+    i$n_phq <- nrow(x)
+    return(i) }) %>%
+  select(subject_id, t, n_phq)
 
 ###############################################################################
 ####                                                                      #####
@@ -252,10 +329,10 @@ next_3m <- from_dan %>%
 ###############################################################################
 
 # NOTE: not merging "app_data", since we're not using these measures in paper.
-
-merged <- clean %>%
+merged <- survey %>%
   filter(t %in% c(0, 3, 12)) %>%
-  left_join(next_3m, by = c("subject_id", "t_d29"))
+  left_join(next_3m, by = c("subject_id", "t_d29")) %>%
+  left_join(phq8, by = c("subject_id", "t"))
 
 # Rescale 'wear time' from 0-3 to 0-1
 merged$wear_time_l3 <- merged$wear_time_l3 / 3
@@ -273,7 +350,7 @@ withdrawals <- read_xlsx(here("data", "survey",
                               apps_disconnected == "Between 12-15 months" ~ 12))
 
 merged <- merged %>%
-  left_join(withdrawals, by = c("subject_id" = "participant_id")) %>% 
+  left_join(withdrawals, by = c("subject_id" = "participant_id"))  %>%
   mutate(excluded = t >= last_app) 
 
 # Check/inspect excluded observations
