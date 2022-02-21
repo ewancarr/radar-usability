@@ -30,17 +30,18 @@ stat <- all_continuous() ~ c("{median} ({p25}, {p75}) [{min}, {max}]",
                              "{N_miss}")
 
 tab_demo <- sel %>%
-  filter(t == 0) %>%
-  select(age, male, comorf, edyrs, inwork, t_label) %>%
+  select(age, male, comorf, edyrs, inwork, n_lte_f, t_label) %>%
   tbl_summary(by = t_label,
               statistic = all_continuous() ~ c("{median} ({p25}, {p75}) [{min}, {max}]"),
-              type = all_continuous() ~ "continuous",
+              type = list(all_continuous() ~ "continuous",
+                          n_lte_f ~ "categorical"),
               missing = "no",
               label = list(age = "Age",
                            male = "Male gender",
                            comorf = "Number of comorbid conditions",
                            edyrs = "Years of education",
-                           inwork = "Currently working"))
+                           inwork = "Currently working",
+                           n_lte_f = "Lifetime events, last 3 months"))
 
 tab_clinical <- sel %>%
   select(t_label, ids, gad, wsas) %>%
@@ -71,9 +72,8 @@ tab_usage <- sel %>%
               type = list(all_continuous() ~ "continuous2",
                           n_phq_f ~ "categorical"),
               missing = "no",
-              label = list(
-                  wear_time_l3 ~ "Proportion of time wearing FitBit, next 3 months",
-                  n_phq_f ~ "Number of PHQ-8 questionnaire completions, next 3 months"))
+              label = list(wear_time_l3 ~ "Proportion of time wearing FitBit, next 3 months",
+                           n_phq_f ~ "Number of PHQ-8 questionnaire completions, next 3 months"))
 
 table1 <- tbl_stack(list(tab_demo,
                          tab_clinical,
@@ -88,7 +88,7 @@ table1 <- tbl_stack(list(tab_demo,
    gt::tab_style(style = gt::cell_text(weight = "bold"),
                  locations = gt::cells_row_groups(groups = everything()))
 
-table1 %>% as_gt()
+table1
 
 # Figure 2: Distributions of mediators and outcomes ---------------------------
 
@@ -207,5 +207,3 @@ ggsave(p_dist, file = here("writing", "figures", "distributions.png"),
        width = 10,
        height = 7,
        dpi = 300)
-
-

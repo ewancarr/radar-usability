@@ -327,9 +327,9 @@ phq8 <- lookup %>%
     return(i) }) %>%
   select(subject_id, t, n_phq)
 
-phq8$n_phq_f <- factor(if_else(phq8$n_phq > 6, 6, phq8$n_phq),
-                       levels = 0:7,
-                       labels = paste0(0:6TRUE ~ phq, level
+phq8$n_phq_f <- factor(if_else(phq8$n_phq > 6, as.integer(6), phq8$n_phq),
+                       levels = 0:6,
+                       labels = paste0(0:6))
 
 ###############################################################################
 ####                                                                      #####
