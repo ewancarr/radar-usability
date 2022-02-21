@@ -20,9 +20,9 @@ parse_event <- function(event) {
 
 # Load survey data ------------------------------------------------------------
 
-extended_data <- read_dta(here("data",
-                               "survey",
-                               "extended_data_2021_09_30.dta")) %>%
+ed <- read_dta(here("data",
+                    "survey",
+                    "extended_data_2021_09_30.dta")) %>%
     rename(fut = Followuptime,
            psu = PSSUQ_TOTAL,
            eth = ETHCAT2,
@@ -56,7 +56,7 @@ extended_data <- read_dta(here("data",
 
 # Get extra information in larger dataset -------------------------------------
 
-total_dataset <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
+td <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
   clean_names() %>%
   select(subject_id,
          redcap_event_name,
@@ -69,11 +69,16 @@ total_dataset <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
          wsas_timestamp, bipq_timestamp,
          csri_timestamp, pssuq_timestamp,
          starts_with("mh_longst_illness_"),
+         starts_with("ltefu_"),
          # Remove 'Depression' comorbidity
          -mh_longst_illness_type_4a) %>%
   mutate(event = parse_event(redcap_event_name),
-         t = as.numeric(event),
-         # Get survey time, as first non-missing value from various timestamps
+         t = as.numeric(event))
+
+# Get date of each follow-up assessment ---------------------------------------
+
+td <- td %>%
+  mutate(# Get first non-missing value from various timestamps
          across(c(lte_sr_timestamp, ids_sr_timestamp,
                   cidi_sf_timestamp, gad7_timestamp,
                   wsas_timestamp, bipq_timestamp,
@@ -87,9 +92,25 @@ total_dataset <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
                                      wsas_timestamp, bipq_timestamp,
                                      csri_timestamp, pssuq_timestamp),
          survey_timestamp = ymd_hms(survey_timestamp),
-         survey_date = coalesce(ids_date, as_date(survey_timestamp)),
-         # Comorbid conditions
-         across(starts_with("mh_longst_illness_type_"), as.numeric),
+         # Set survey date as IDS date or timestamp
+         survey_date = coalesce(ids_date, as_date(survey_timestamp)))
+
+# Manually replace "survey_time" for two participants with data from Faith ----
+
+td[
+    td$subject_id == "35287589-fcfd-423f-8a08-500dbcec2922" &
+    td$t == 12, 
+  ]$survey_date <- ymd("2020-11-05")
+
+td[
+    td$subject_id == "deeeadb9-ead2-42c3-8efe-afebf1f08f13" &
+    td$t == 3, 
+  ]$survey_date <- ymd("2019-04-18")
+
+# Derive comorbid conditions, other variables ---------------------------------
+
+td <- td %>%
+  mutate(across(starts_with("mh_longst_illness_type_"), as.numeric),
          comor = rowSums(across(starts_with("mh_longst_illness_type_"))),
          comorf = factor(if_else(comor > 2, 2, comor),
                          levels = 0:2,
@@ -102,24 +123,26 @@ total_dataset <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
                                           9, 10, 11, 12) ~ FALSE,
                             TRUE ~ NA))
 
-# Manually replace "survey_time" for two participants with data from Faith ----
+lte <- td %>%
+  select(subject_id, t, starts_with("ltefu_")) %>%
+  pivot_longer(starts_with("ltefu_"),
+               names_prefix = "ltfu_") %>%
+  filter(t %in% c(3, 12),
+         name != "ltefu_13") %>%
+  group_by(subject_id, t) %>%
+  summarise(n_lte = sum(as.numeric(value), na.rm = TRUE),
+            n_lte_f = factor(case_when(n_lte %in% 0:2 ~ n_lte,
+                                       n_lte > 2 ~ 3,
+                                       TRUE ~ NA_real_),
+                             levels = 0:3,
+                             labels = c("0", "1", "2", "3+")))
 
-total_dataset[
-    total_dataset$subject_id == "35287589-fcfd-423f-8a08-500dbcec2922" &
-    total_dataset$t == 12, 
-  ]$survey_date <- ymd("2020-11-05")
-
-total_dataset[
-    total_dataset$subject_id == "deeeadb9-ead2-42c3-8efe-afebf1f08f13" &
-    total_dataset$t == 3, 
-  ]$survey_date <- ymd("2019-04-18")
+td <- full_join(td, lte, by = c("subject_id", "t"))
 
 # Merge both survey datasets --------------------------------------------------
 
-table(unique(extended_data$subject_id) %in% unique(total_dataset$subject_id)) 
-survey <- full_join(extended_data,
-                    total_dataset,
-                    by = c("subject_id", "t"))
+table(unique(ed$subject_id) %in% unique(td$subject_id)) 
+survey <- full_join(ed, td, by = c("subject_id", "t"))
 
 # Check: how many people are missing survey_time?
 survey %>%
