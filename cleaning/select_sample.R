@@ -7,7 +7,7 @@ library(here)
 library(janitor)
 library(gtsummary)
 library(readxl)
-load(here("data", "clean", "merged.Rdata"))
+load(here("data", "clean", "merged.Rdata"), verbose = TRUE)
 
 # Select sample ---------------------------------------------------------------
 
@@ -15,20 +15,20 @@ load(here("data", "clean", "merged.Rdata"))
 sel <- merged
 length(unique(sel$subject_id))
 
-# [Outcomes] At least one measurement of each outcome
+# [Usage] At least one measurement of each outcome
 sel <- sel %>% drop_na(wear_time_l3, total_phq8_l3)
 length(unique(sel$subject_id))
 
-# [Mediators] At least one measurement of each mediator
-sel <- merged %>% drop_na(psurev, tamrev, pc_useful_r, pc_ease_r)
+# [Usability] At least one measurement of each mediator
+sel <- merged %>% drop_na(psurev, tamrev, useful, ease)
 length(unique(sel$subject_id))
 
-# Remove missing on exposures
+# [Clinical variables]
 sel <- sel %>% drop_na(gad, ids, wsas)
 length(unique(sel$subject_id))
 
 # Remove missing on covariates
-sel <- sel %>% drop_na(age, comorf, edyrs, inwork, prevwear)
+sel <- sel %>% drop_na(age, comorf, edyrs, inwork, prevwear, n_lte_f)
 length(unique(sel$subject_id))
 
 # Compare included vs. excluded -----------------------------------------------
@@ -38,19 +38,19 @@ compare <- merged %>%
   mutate(samp = "excluded") %>%
   bind_rows(mutate(sel, samp = "analytical"))
 
-# compare %>%
-#   select(samp,
-#          ids,
-#          age,
-#          male,
-#          comorf,
-#          edyrs,
-#          inwork,
-#          prevwear) %>%
-#   summarise(across(everything(), ~ first(na.omit(.x)))) %>%
-#   ungroup() %>%
-#   select(-subject_id) %>%
-#   tbl_summary(by = "samp")
+compare %>%
+  select(samp,
+         ids,
+         age,
+         male,
+         comorf,
+         edyrs,
+         inwork,
+         prevwear) %>%
+  summarise(across(everything(), ~ first(na.omit(.x)))) %>%
+  ungroup() %>%
+  select(-subject_id) %>%
+  tbl_summary(by = "samp")
 
 # Export chosen participants
 picks <- unique(as.character(sel$subject_id))
@@ -59,4 +59,3 @@ sel %>%
   distinct() %>%
   write_csv(here("data", "clean", "selected.csv"))
 save(picks, file = here("data", "clean", "selected.Rdata"))
-
