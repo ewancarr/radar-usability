@@ -13,7 +13,7 @@ library(tidybayes)
 load(here("data", "clean", "merged.Rdata"), verbose = TRUE)
 load(here("data", "clean", "selected.Rdata"), verbose = TRUE)
 load(here("outputs", "dags.Rdata"), verbose = TRUE)
-n_iter <- 1e4
+n_iter <- 2e4
 set_cmdstan_path("~/.cmdstan/cmdstan-2.28.2")
 options(mc.cores = 24,
         brms.backend = "cmdstanr",
@@ -247,12 +247,13 @@ names(fit_h3) <- make_labels(spec_h3)
 
 # Save ------------------------------------------------------------------------
 
-save(fit_h1, fit_h2, fit_h3,
-     file = here("outputs", "posteriors.Rdata"))
+# Posteriors
+save(fit_h1, file = here("outputs", "fit_h1.Rdata"))
+save(fit_h2, file = here("outputs", "fit_h2.Rdata"))
+save(fit_h3, file = here("outputs", "fit_h3.Rdata"))
 
-save(sel,
-     file = here("data", "clean", "sel.Rdata"))
-
+# Data
+save(sel, file = here("data", "clean", "sel.Rdata"))
 haven::write_dta(sel, here("data", "clean", "sel.dta"))
 
 # END.
