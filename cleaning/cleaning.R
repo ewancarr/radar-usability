@@ -69,7 +69,7 @@ td <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
          wsas_timestamp, bipq_timestamp,
          csri_timestamp, pssuq_timestamp,
          starts_with("mh_longst_illness_"),
-         starts_with("ltefu_"),
+         starts_with("lte"),
          # Remove 'Depression' comorbidity
          -mh_longst_illness_type_4a) %>%
   mutate(event = parse_event(redcap_event_name),
@@ -123,21 +123,46 @@ td <- td %>%
                                           9, 10, 11, 12) ~ FALSE,
                             TRUE ~ NA))
 
-lte <- td %>%
-  select(subject_id, t, starts_with("ltefu_")) %>%
-  pivot_longer(starts_with("ltefu_"),
+# Lifetime events -------------------------------------------------------------
+
+recode_lte <- function(dat) {
+  group_by(dat, subject_id, t) %>%
+  summarise(n_lte = sum(in_the_last),
+            n_lte_f = factor(case_when(n_lte %in% 0:2 ~ n_lte,
+                                       n_lte > 2 ~ as.integer(3),
+                                       TRUE ~ NA_integer_),
+                             levels = 0:3,
+                             labels = c("0", "1", "2", "3+")))
+}
+
+# At 3 and 12 months: use "ltefu"
+lte_fu <- td %>%
+  select(subject_id, t, ltefu_1:ltefu_12) %>%
+  pivot_longer(ltefu_1:ltefu_12,
                names_prefix = "ltfu_") %>%
   filter(t %in% c(3, 12),
          name != "ltefu_13") %>%
-  group_by(subject_id, t) %>%
-  summarise(n_lte = sum(as.numeric(value), na.rm = TRUE),
-            n_lte_f = factor(case_when(n_lte %in% 0:2 ~ n_lte,
-                                       n_lte > 2 ~ 3,
-                                       TRUE ~ NA_real_),
-                             levels = 0:3,
-                             labels = c("0", "1", "2", "3+")))
+  mutate(in_the_last = value == 1,
+         item = parse_number(name)) %>%
+  select(subject_id, t, item, in_the_last) %>%
+  recode_lte()
 
+# At 0 months/enrolment: use lte == "in the last year"
+lte_0m <- td %>%
+  filter(t == 0) %>%
+  select(subject_id, t, lte_1:lte_12a) %>%
+  pivot_longer(lte_1:lte_12a,
+               names_prefix = "lte_") %>%
+  mutate(in_the_last = value == 1,
+         item = parse_number(name)) %>%
+  select(subject_id, t, item, in_the_last) %>%
+  recode_lte()
+
+lte <- bind_rows(lte_0m, lte_fu)
 td <- full_join(td, lte, by = c("subject_id", "t"))
+
+tabyl(lte, n_lte_f, t)
+
 
 # Merge both survey datasets --------------------------------------------------
 
