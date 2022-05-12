@@ -8,21 +8,21 @@
 <sup>*</sup>Corresponding author.
 
 
-a. Department of Psychological Medicine, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
-b. Department of Biostatistics and Health Informatics, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
-c. Department of Psychiatry and Amsterdam Public Health Research Institute, Amsterdam UMC, Vrije Universiteit, Amsterdam, the Netherlands  
-d. Parc Sanitari Sant Joan de Déu, Fundació San Joan de Déu, CIBERSAM, Universitat de Barcelona, Barcelona, Spain  
-e. H\. Lundbeck A/S, Valby, Denmark  
-f. IRCCS Instituto Centro San Giovanni di Dio Fatebenefratelli, Brescia, Italy  
-g. Janssen Research and Development, LLC, Titusville, NJ, USA  
-h. Center for Behavioral Intervention Technologies, Department of Preventative Medicine, Northwestern University, Chicago, IL, USA  
-i. Parc Sanitari Joan de D ́eu, Barcelona, Spain  
-j. Department of Psychology, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
-k. RADAR-CNS Patient Advisory Board  
-l. South London and Maudsley NHS Foundation Trust, London, UK  
-m. Department for Neurosciences, Center for Contextual Psychiatry, KU Leuven, Leuven, Belgium  
-n. EIHW – Chair of Embedded Intelligence for Health Care and Wellbeing, University of Augsburg, Augsburg, Germany  
-o. www.radar-cns.org, UK  
+> a. Department of Psychological Medicine, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
+> b. Department of Biostatistics and Health Informatics, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
+> c. Department of Psychiatry and Amsterdam Public Health Research Institute, Amsterdam UMC, Vrije Universiteit, Amsterdam, the Netherlands  
+> d. Parc Sanitari Sant Joan de Déu, Fundació San Joan de Déu, CIBERSAM, Universitat de Barcelona, Barcelona, Spain  
+> e. H\. Lundbeck A/S, Valby, Denmark  
+> f. IRCCS Instituto Centro San Giovanni di Dio Fatebenefratelli, Brescia, Italy  
+> g. Janssen Research and Development, LLC, Titusville, NJ, USA  
+> h. Center for Behavioral Intervention Technologies, Department of Preventative Medicine, Northwestern University, Chicago, IL, USA  
+> i. Parc Sanitari Joan de D ́eu, Barcelona, Spain  
+> j. Department of Psychology, Institute of Psychiatry, Psychology and Neuroscience, King's College London, UK  
+> k. RADAR-CNS Patient Advisory Board  
+> l. South London and Maudsley NHS Foundation Trust, London, UK  
+> m. Department for Neurosciences, Center for Contextual Psychiatry, KU Leuven, Leuven, Belgium  
+> n. EIHW – Chair of Embedded Intelligence for Health Care and Wellbeing, University of Augsburg, Augsburg, Germany  
+> o. www.radar-cns.org, UK  
 
 ## Abstract
 
