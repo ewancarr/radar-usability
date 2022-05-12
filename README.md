@@ -1,5 +1,7 @@
 # Predictors of engagement with remote sensing technologies for symptom measurement in Major Depressive Disorder
 
+<https://doi.org/10.1016/j.jad.2022.05.005>
+
 >F\. Matcham <sup>a,*,1</sup>, E. Carr<sup>b,1</sup>, K.M. White<sup>a</sup>, D. Leightley<sup>a</sup>, F. Lamers<sup>c</sup>, S. Siddi<sup>d</sup>, P. Annas<sup>e</sup>, G. de Girolamo<sup>f</sup>, J.M. Haro<sup>d</sup>, M. Horsfall<sup>c</sup>, A. Ivan<sup>a</sup>, G. Lavelle<sup>a</sup>, Q. Li<sup>g</sup>, F. Lombardini<sup>d</sup>, D.C. Mohr<sup>h</sup>, V.A. Narayan<sup>g</sup>, B.W.H.J. Penninx<sup>c</sup>, C. Oetzmann<sup>a</sup>, M. Coromina<sup>i</sup>, S.K. Simblett<sup>j</sup>, J. Weyer<sup>k</sup>, T. Wykes<sup>j,l</sup>, S. Zorbas<sup>k</sup>, J.C. Brasen<sup>e</sup>, I. Myin-Germeys<sup>m</sup>, P. Conde<sup>b</sup>, R.J.B. Dobson<sup>b</sup>, A. A. Folarin<sup>b</sup>, Y. Ranjan<sup>b</sup>, Z. Rashid<sup>b</sup>, N. Cummins<sup>b</sup>, J. Dineley<sup>b,n</sup>, S. Vairavan<sup>g</sup>, M. Hotopf<sup>a,l</sup>, on behalf of the RADAR-CNS consortium<sup>o</sup>.
 
 <sup>1</sup>Joint first authors.  
