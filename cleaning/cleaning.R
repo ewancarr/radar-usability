@@ -56,7 +56,9 @@ ed <- read_dta(here("data",
 
 # Get extra information in larger dataset -------------------------------------
 
-td <- read_dta(here("data", "survey", "totaldataset.dta")) %>%
+td <- read_dta(here("data",
+                    "survey",
+                    "totaldataset.dta")) %>%
   clean_names() %>%
   select(subject_id,
          redcap_event_name,
@@ -160,9 +162,6 @@ lte_0m <- td %>%
 
 lte <- bind_rows(lte_0m, lte_fu)
 td <- full_join(td, lte, by = c("subject_id", "t"))
-
-tabyl(lte, n_lte_f, t)
-
 
 # Merge both survey datasets --------------------------------------------------
 

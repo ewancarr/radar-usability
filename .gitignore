@@ -3,3 +3,6 @@ renv/
 data/
 outputs/
 old/
+.Rproj.user
+
+.DS_Store
