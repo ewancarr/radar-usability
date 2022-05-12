@@ -10,6 +10,8 @@ library(confintr)
 library(patchwork)
 library(furrr)
 library(huxtable)
+library(janitor)
+library(naniar)
 library(RColorBrewer)
 plan(multicore)
 load(here("data", "clean", "merged.Rdata"), verbose = TRUE)
@@ -207,3 +209,66 @@ ggsave(p_dist, file = here("writing", "figures", "distributions.png"),
        width = 10,
        height = 7,
        dpi = 300)
+
+# Counts needed for the text
+
+tabyl(fu$wear_time_l3 == 0) %>% adorn_totals()
+summary(fu$wear_time_l3[fu$wear_time_l3 > 0])
+
+tabyl(na.omit(fu$n_phq_f)) %>% adorn_totals()
+
+np <- as.numeric(na.omit(fu$n_phq_f)) - 1
+summary(np[np > 0])
+as.numeric(np) - 1
+summary(as.numeric(fu$n_phq_f[!is.na(fu$n_phq_f) & as.numeric(fu$n_phq_f) > 0]) - 1)
+
+# Supplementary Figure: Describe outcomes by sociodemographics ----------------
+
+# Covariates: age, 
+#             male gender
+#             number of comorbid conditions
+#             years of education
+#             currently working
+#             recent life events
+# Outcomes:   Proportion of time wearing FitBit, next 3 months
+#             Total PHQ-8 completions
+
+sup <- sel %>%
+  select(subject_id, t,
+         age, gender, comorf, edyrs, inwork, n_lte_f,
+         n_phq_f, wear_time_l3)  %>%
+  group_by(subject_id) %>%
+  mutate(across(c(age, gender, comorf, edyrs, n_lte_f, inwork),
+                ~ first(na.omit(.x))),
+         edyrs_cat = cut(edyrs, 
+                         breaks=c(-Inf, 10, 20, Inf), 
+                         labels=c("0-10",
+                                  "11-20",
+                                  "21+")),
+         age_cat = cut(age,
+                       breaks=c(-Inf, 30, 45, 65, Inf), 
+                       labels=c("18-30",
+                                "31-45",
+                                "46-65",
+                                "66+")))
+
+get_summary <- function(var) {
+  sup %>%
+    group_by({{var}}) %>%
+    summarise(n_phq = n_complete(as.numeric(n_phq_f)),
+              med_phq = median(as.numeric(n_phq_f), na.rm = TRUE),
+              n_wt = n_complete(wear_time_l3),
+              med_wt = median(wear_time_l3, na.rm = TRUE))
+}
+
+
+bind_rows(get_summary(age_cat),
+          get_summary(gender),
+          get_summary(comorf),
+          get_summary(edyrs_cat),
+          get_summary(inwork)) %>% 
+  mutate(cell1 = str_glue("{round(med_phq)} [{n_phq}]"),
+         cell2 = str_glue("{sprintf('%.2f', med_wt)} [{n_wt}]")) %>%
+  write_csv("~/tidy.csv")
+
+# END.
