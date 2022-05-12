@@ -1,4 +1,4 @@
-# Title:        Select analytical sample
+# Title:        Select analytical sample for RADAR usability paper
 # Author:       Ewan Carr
 # Started:      2022-01-11
 

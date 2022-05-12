@@ -1,6 +1,6 @@
-# title: "Fitting separate models for each outcome"
-# author: "Ewan Carr"
-# date: "24th November 2021"
+# Title:        Fitting separate models for each outcome
+# Author:       Ewan Carr
+# Started:      2021-11-24
 
 renv::activate()
 library(here)

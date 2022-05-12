@@ -96,6 +96,8 @@ d1 <- dagitty('dag {
               WSAS -> Usability
 }')
 
+print(adjustmentSets(d1))
+
 d1_data <- dag_to_data(d1)
 
 # Adjust curves
@@ -157,6 +159,9 @@ Age -> "Clinical variables"
 "Clinical variables" -> "Usability"
 "Clinical variables" -> Usage
 }')
+
+print(adjustmentSets(d2))
+
 d2_data <- dag_to_data(d2)
 
 # Adjust curves
@@ -216,6 +221,8 @@ Usability -> Usage
 WSAS -> Usability
 WSAS -> Usage
 }')
+
+print(adjustmentSets(d3))
 
 d3_data <- dag_to_data(d3)
 
