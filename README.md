@@ -22,7 +22,7 @@ k. RADAR-CNS Patient Advisory Board
 l. South London and Maudsley NHS Foundation Trust, London, UK  
 m. Department for Neurosciences, Center for Contextual Psychiatry, KU Leuven, Leuven, Belgium  
 n. EIHW – Chair of Embedded Intelligence for Health Care and Wellbeing, University of Augsburg, Augsburg, Germany  
-o. <www.radar-cns.org>, UK  
+o. www.radar-cns.org, UK  
 
 ## Abstract
 
